@@ -1,5 +1,4 @@
-<link rel="import" href="../bower_components/polymer/polymer.html">
-
+<link rel="import" href="../polymer/polymer.html">
 
 <!--
 `<barcode-scanner>` is an element to scan Barcodes
@@ -15,10 +14,14 @@ Typical usage:
 @homepage index.html
 @demo demo/index.html
 -->
+<!--
+
+             Open Issue: drawingBuffer wrong width on Android
+             https://github.com/serratus/quaggaJS/issues/201
+
+-->
 
 <script src="../quagga/dist/quagga.min.js"></script>
-
-<!--<script src="../bower_components/quagga/dist/quagga.min.js"></script>-->
 
 <dom-module is="barcode-scanner">
 
@@ -38,10 +41,8 @@ Typical usage:
                 display: flex;
                 box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14), 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 3px 1px -2px rgba(0, 0, 0, 0);
             }
-            .media {
-                display: flex;
-                flex-flow: column nowrap;
-                align-items: center;
+            canvas {
+                display: none;
             }
             .placeholder {
                 width: var(--placeholder-width, 320px);
@@ -105,8 +106,54 @@ Typical usage:
                 }
 
             },
-
             activateScanner: function() {
+                Quagga.init({
+                    inputStream : {
+                        name : "Live",
+                        type : "LiveStream",
+                        target: this.$.interactive,
+                        constraints: {
+                            width: 640,
+                            height: 480,
+                            facingMode: "environment",
+                        }
+                    },
+                    decoder : {
+                        readers : this.readers
+                    },
+                    debug: false
+                }, function(err) {
+                    if (err) {
+                        console.log(err);
+                        return;
+                    }
+                    this.active = true;
+                    Quagga.start();
+                }.bind(this));
+
+                Quagga.onDetected(function(result) {
+                    this.code = result.codeResult.code;
+                    this.stopScanner();
+                }.bind(this));
+            },
+
+            stopScanner: function() {
+                this.active = false;
+                Quagga.stop();
+            },
+
+            /*
+             The following code applies to Beta 1.0.0-beta.1 (major API change)
+             It works fine except on Android Mobile. It cant find the backfacing cam. Something to do with
+             getMediaDevices and a bug in chrome
+
+             backfacing camera does not work on VideoScan to InputField Beta test #151
+             https://github.com/serratus/quaggaJS/issues/151
+             https://github.com/serratus/quaggaJS/issues/179
+
+             */
+
+            XactivateScanner: function() {
                 this.scanner = this.configureScanner(this.$.interactive),
                         onDetected = function (result) {
                             this.code = result.codeResult.code;
@@ -123,28 +170,29 @@ Typical usage:
                 this.scanner.addEventListener('detected', onDetected).start();
             },
 
-            configureScanner: function(selector) {
+            XconfigureScanner: function(selector) {
                 if (!this._scanner) {
                     this._scanner = Quagga
                             .decoder({readers: this.readers})
-                            .locator({patchSize: 'medium'})
                             .fromSource({
                                 target: selector,
                                 constraints: {
-                                    width: 800,
-                                    height: 600,
-                                    facingMode: "environment"
+                                    width: 640,
+                                    height: 480,
+                                    facingMode: "environment",
                                 }
                             });
                 }
                 return this._scanner;
             },
 
-            stopScanner: function() {
+            XstopScanner: function() {
                 this.active = false;
                 this.scanner.stop();
             }
+
         });
     </script>
 
 </dom-module>
+
